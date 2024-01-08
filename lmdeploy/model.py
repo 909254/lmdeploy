@@ -522,7 +522,7 @@ class DeepSeek(BaseModel):
             system="""You are an AI programming assistant, utilizing the Deepseek Coder model, developed by Deepseek Company, and you only answer questions related to computer science. For politically sensitive questions, security and privacy issues, and other non-computer science questions, you will refuse to answer""",  # noqa: E501
             session_len=4096,
             **kwargs):
-        super().__init__(top_k=50, top_p=0.95,**kwargs)
+        super().__init__(top_k=50, top_p=0.95, **kwargs)
         self.b_inst = b_inst
         self.e_inst = e_inst
         self.b_sys = b_sys
