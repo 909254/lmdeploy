@@ -97,7 +97,7 @@ def cancel_restful_func(state_chatbot: gr.State, cancel_btn: gr.Button,
             f'{InterFace.api_server_url}/v1/chat/interactive',
             session_id=session_id,
             request_output_len=0,
-            stop=True,
+            cancel=True,
             interactive_mode=True):
         pass
     # end the session
@@ -109,6 +109,7 @@ def cancel_restful_func(state_chatbot: gr.State, cancel_btn: gr.Button,
             interactive_mode=False):
         pass
     # resume the session
+    # TODO this is not proper if api server is running pytorch backend
     messages = []
     for qa in state_chatbot:
         messages.append(dict(role='user', content=qa[0]))

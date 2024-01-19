@@ -1,10 +1,10 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import dataclasses
-import difflib
 import os
 from abc import abstractmethod
-from typing import List, Optional
+from typing import List, Literal, Optional
 
+from fuzzywuzzy import fuzz, process
 from mmengine import Registry
 
 MODELS = Registry('model', locations=['lmdeploy.model'])
@@ -19,20 +19,34 @@ class SamplingParam:
 
 
 @dataclasses.dataclass
-class ModelConfig:
-    """parameters for chat templates."""
-    model_name: str  # determine which chat template will be applied
-    system: Optional[str] = None  # begin of the system prompt
-    meta_instruction: Optional[str] = None  # system prompt
-    eosys: Optional[str] = None  # end of the system prompt
-    user: Optional[str] = None  # begin of the user prompt
-    eoh: Optional[str] = None  # end of the user prompt
-    assistant: Optional[str] = None  # begin of the assistant prompt
-    eoa: Optional[str] = None  # end of the assistant prompt
-    capability: Optional[str] = None
+class ChatTemplateConfig:
+    """Parameters for chat template.
+
+    Args:
+        model_name (str): the name of the deployed model. Determine which chat template will be applied
+        system (str | None): begin of the system prompt
+        meta_instruction (str | None): system prompt
+        eosys (str | None): end of the system prompt
+        user (str | None): begin of the user prompt
+        eoh (str | None): end of the user prompt
+        assistant (str | None): begin of the assistant prompt
+        eoa (str | None): end of the assistant prompt
+        capability: ('completion' | 'infilling' | 'chat' | 'python') = None
+    """  # noqa: E501
+
+    model_name: str
+    system: Optional[str] = None
+    meta_instruction: Optional[str] = None
+    eosys: Optional[str] = None
+    user: Optional[str] = None
+    eoh: Optional[str] = None
+    assistant: Optional[str] = None
+    eoa: Optional[str] = None
+    capability: Optional[Literal['completion', 'infilling', 'chat',
+                                 'python']] = None
 
     @property
-    def model(self):
+    def chat_template(self):
         attrs = {
             key: value
             for key, value in dataclasses.asdict(self).items()
@@ -142,7 +156,7 @@ class BaseModel:
                              repetition_penalty=self.repetition_penalty)
 
 
-@MODELS.register_module(name='wizardlM')
+@MODELS.register_module(name='wizardlm')
 @MODELS.register_module(name='vicuna')
 class Vicuna(BaseModel):
     """Chat template of vicuna model."""
@@ -304,6 +318,41 @@ class InternLMBaseModel20B(BaseModel):
                          **kwargs)
 
 
+@MODELS.register_module(name=['internlm2-7b', 'internlm2-20b'])
+class InternLM2BaseModel7B(BaseModel):
+    """Generation parameters of InternLM2-7B-Base model."""
+
+    def __init__(self, session_len=32768, capability='completion', **kwargs):
+        super().__init__(session_len=session_len,
+                         capability=capability,
+                         **kwargs)
+
+
+@MODELS.register_module(name=['internlm2-chat-7b', 'internlm2-chat-20b'])
+class InternLM2Chat7B(InternLMChat7B):
+    """Chat template and generation parameters of InternLM2-Chat-7B."""
+
+    def __init__(self,
+                 session_len=32768,
+                 system='[UNUSED_TOKEN_146]system\n',
+                 user='[UNUSED_TOKEN_146]user\n',
+                 assistant='[UNUSED_TOKEN_146]assistant\n',
+                 eosys='[UNUSED_TOKEN_145]\n',
+                 eoh='[UNUSED_TOKEN_145]\n',
+                 eoa='[UNUSED_TOKEN_145]\n',
+                 stop_words=['[UNUSED_TOKEN_145]'],
+                 **kwargs):
+        super(InternLM2Chat7B, self).__init__(session_len=session_len,
+                                              system=system,
+                                              user=user,
+                                              assistant=assistant,
+                                              eosys=eosys,
+                                              eoh=eoh,
+                                              eoa=eoa,
+                                              stop_words=stop_words,
+                                              **kwargs)
+
+
 @MODELS.register_module(name='baichuan-7b')
 class Baichuan7B(BaseModel):
     """Generation parameters of Baichuan-7B base model."""
@@ -427,7 +476,7 @@ class Puyu(BaseModel):
         return ret
 
 
-@MODELS.register_module(name='llama2')
+@MODELS.register_module(name=['llama2', 'llama-2', 'llama-2-chat'])
 class Llama2(BaseModel):
     """Chat template of LLaMA2 model."""
 
@@ -739,7 +788,7 @@ class ChatGLM2(BaseModel):
         return f'[Round {self.count}]\n\n问：{prompt}\n\n答：'
 
 
-@MODELS.register_module(name='solar')
+@MODELS.register_module(name=['solar', 'solar-70b'])
 class SOLAR(BaseModel):
     """Chat template of SOLAR model.
 
@@ -874,7 +923,7 @@ class UltraChat(BaseModel):
         return ret
 
 
-@MODELS.register_module(name='yi')
+@MODELS.register_module(name=['yi', 'yi-chat', 'yi-200k', 'yi-34b'])
 class Yi(BaseModel):
     """Chat template of Yi model."""
 
@@ -947,12 +996,12 @@ class Yi(BaseModel):
         return ret
 
 
-def best_match_model(query: str, similarity_cutoff: float = 0.4):
-    """Get the model that match the query.
+def best_match_model(query: str, similarity_cutoff: float = 0.5):
+    """Get the model that matches the query.
 
     Args:
         query (str): the input query. Could be a model path.
-        similarity_cutoff (float): similarities below to the limit are ignored.
+        similarity_cutoff (float): similarities below the limit are ignored.
 
     Return:
         List[str] | None: the possible model names or none.
@@ -961,7 +1010,22 @@ def best_match_model(query: str, similarity_cutoff: float = 0.4):
     if query.endswith('/'):
         query = query[:-1]
     base_name = os.path.basename(query).lower()
-    matches = difflib.get_close_matches(base_name,
-                                        model_names,
-                                        cutoff=similarity_cutoff)
-    return matches if matches else None
+    max_ratio, matched_name = float('-inf'), None
+    for model_name in model_names:
+        if model_name in base_name:
+            ratio = fuzz.ratio(model_name.lower(), base_name)
+            if ratio > max_ratio and model_name != 'base':  # skip base model
+                max_ratio = ratio
+                matched_name = model_name
+    if matched_name:
+        return matched_name
+
+    # Using fuzzy matching
+    matches = process.extract(base_name, model_names, scorer=fuzz.ratio)
+
+    # Ignore matches with score below similarity_cutoff
+    matches = [
+        match for match, score in matches if score / 100 >= similarity_cutoff
+    ]
+
+    return matches[0] if matches else None

@@ -20,6 +20,17 @@ ______________________________________________________________________
 
 ## 最新进展 🎉
 
+<details open>
+<summary><b>2024</b></summary>
+
+- \[2024/01\] 支持多模型、多机、多卡推理服务。使用方法请参考[此处](./docs/zh_cn/serving/proxy_server.md)
+- \[2024/01\] 增加 [PyTorch 推理引擎](./docs/zh_cn/inference/pytorch.md)，作为 TurboMind 引擎的补充。帮助降低开发门槛，和快速实验新特性、新技术
+
+</details>
+
+<details close>
+<summary><b>2023</b></summary>
+
 - \[2023/12\] Turbomind 支持多模态输入。[Gradio Demo](./examples/vl/README.md)
 - \[2023/11\] Turbomind 支持直接读取 Huggingface 模型。点击[这里](docs/zh_cn/inference/load_hf.md)查看使用方法
 - \[2023/11\] TurboMind 重磅升级。包括：Paged Attention、更快的且不受序列最大长度限制的 attention kernel、2+倍快的 KV8 kernels、Split-K decoding (Flash Decoding) 和 支持 sm_75 架构的 W4A16
@@ -30,13 +41,14 @@ ______________________________________________________________________
 - \[2023/08\] TurboMind 支持 flash-attention2
 - \[2023/08\] TurboMind 支持 Qwen-7B，动态NTK-RoPE缩放，动态logN缩放
 - \[2023/08\] TurboMind 支持 Windows (tp=1)
-- \[2023/08\] TurboMind 支持 4-bit 推理，速度是 FP16 的 2.4 倍，是目前最快的开源实现🚀。部署方式请看[这里](docs/zh_cn/quantization/w4a16.md)
+- \[2023/08\] TurboMind 支持 4-bit 推理，速度是 FP16 的 2.4 倍，是目前最快的开源实现。部署方式请看[这里](docs/zh_cn/quantization/w4a16.md)
 - \[2023/08\] LMDeploy 开通了 [HuggingFace Hub](https://huggingface.co/lmdeploy) ，提供开箱即用的 4-bit 模型
 - \[2023/08\] LMDeploy 支持使用 [AWQ](https://arxiv.org/abs/2306.00978) 算法进行 4-bit 量化
 - \[2023/07\] TurboMind 支持使用 GQA 的 Llama-2 70B 模型
 - \[2023/07\] TurboMind 支持 Llama-2 7B/13B 模型
 - \[2023/07\] TurboMind 支持 InternLM 的 Tensor Parallel 推理
 
+</details>
 ______________________________________________________________________
 
 # 简介
@@ -44,11 +56,13 @@ ______________________________________________________________________
 LMDeploy 由 [MMDeploy](https://github.com/open-mmlab/mmdeploy) 和 [MMRazor](https://github.com/open-mmlab/mmrazor) 团队联合开发，是涵盖了 LLM 任务的全套轻量化、部署和服务解决方案。
 这个强大的工具箱提供以下核心功能：
 
-- **高效推理引擎 TurboMind**：开发了 Persistent Batch(即 Continuous Batch)，Blocked K/V Cache，动态拆分和融合，张量并行，高效的计算 kernel等重要特性，保障了 LLMs 推理时的高吞吐和低延时。
+- **高效的推理**：LMDeploy 开发了 Persistent Batch(即 Continuous Batch)，Blocked K/V Cache，动态拆分和融合，张量并行，高效的计算 kernel等重要特性。推理性能是 vLLM 的 1.8 倍
+
+- **可靠的量化**：LMDeploy 支持权重量化和 k/v 量化。4bit 模型推理效率是 FP16 下的 2.4 倍。量化模型的可靠性已通过 OpenCompass 评测得到充分验证。
+
+- **便捷的服务**：通过请求分发服务，LMDeploy 支持多模型在多机、多卡上的推理服务。
 
 - **有状态推理**：通过缓存多轮对话过程中 attention 的 k/v，记住对话历史，从而避免重复处理历史会话。显著提升长文本多轮对话场景中的效率。
-
-- **量化**：LMDeploy 支持多种量化方式和高效的量化模型推理。在不同规模的模型上，验证了量化的可靠性。
 
 # 性能
 
@@ -65,34 +79,45 @@ LMDeploy TurboMind 引擎拥有卓越的推理能力，在各种规模的模型�
 
 # 支持的模型
 
-`LMDeploy` 支持 2 种推理引擎： `TurboMind` 和 `PyTorch`，它们侧重不同。前者追求推理性能的极致优化，后者纯用python开发，着重降低开发者的门槛。
+|       Model        |   Size    |
+| :----------------: | :-------: |
+|       Llama        | 7B - 65B  |
+|       Llama2       | 7B - 70B  |
+|      InternLM      | 7B - 20B  |
+|     InternLM2      | 7B - 20B  |
+| InternLM-XComposer |    7B     |
+|        QWen        | 7B - 72B  |
+|      QWen-VL       |    7B     |
+|      Baichuan      | 7B - 13B  |
+|     Baichuan2      | 7B - 13B  |
+|     Code Llama     | 7B - 34B  |
+|      ChatGLM2      |    6B     |
+|       Falcon       | 7B - 180B |
 
-不同的推理引擎在支持的模型类别、计算精度方面有所差别。用户可根据实际需求选择合适的。
+LMDeploy 支持 2 种推理引擎： [TurboMind](./docs/zh_cn/inference/turbomind.md) 和 [PyTorch](./docs/zh_cn/inference/pytorch.md)，它们侧重不同。前者追求推理性能的极致优化，后者纯用python开发，着重降低开发者的门槛。
 
-## TurboMind 支持的模型
+它们在支持的模型类别、计算精度方面有所差别。用户可参考[这里](./docs/zh_cn/supported_models/supported_models.md), 查阅每个推理引擎的能力，并根据实际需求选择合适的。
 
-|        模型        | 模型规模 | FP16/BF16 | KV INT8 | W4A16 |
-| :----------------: | :------: | :-------: | :-----: | :---: |
-|       Llama        | 7B - 65B |    Yes    |   Yes   |  Yes  |
-|       Llama2       | 7B - 70B |    Yes    |   Yes   |  Yes  |
-|      InternLM      | 7B - 20B |    Yes    |   Yes   |  Yes  |
-| InternLM-XComposer |    7B    |    Yes    |   Yes   |  Yes  |
-|        QWen        | 7B - 72B |    Yes    |   Yes   |  Yes  |
-|      QWen-VL       |    7B    |    Yes    |   Yes   |  Yes  |
-|      Baichuan      |    7B    |    Yes    |   Yes   |  Yes  |
-|     Baichuan2      |    7B    |    Yes    |   Yes   |  Yes  |
-|     Code Llama     | 7B - 34B |    Yes    |   No    |  No   |
+# 快速开始
 
-### PyTorch 支持的模型
+## 安装
 
-|   模型    | 模型规模  | FP16/BF16 | KV INT8 | W8A8 |
-| :-------: | :-------: | :-------: | :-----: | :--: |
-|   Llama   | 7B - 65B  |    Yes    |   No    | Yes  |
-|  Llama2   | 7B - 70B  |    Yes    |   No    | Yes  |
-| InternLM  | 7B - 20B  |    Yes    |   No    | Yes  |
-| Baichuan2 | 7B - 13B  |    Yes    |   No    | Yes  |
-| ChatGLM2  |    6B     |    Yes    |   No    |  No  |
-|  Falcon   | 7B - 180B |    Yes    |   No    |  No  |
+使用 pip ( python 3.8+) 安装 LMDeploy，或者[源码安装](./docs/zh_cn/build.md)
+
+```shell
+pip install lmdeploy
+```
+
+## 离线批处理
+
+```python
+import lmdeploy
+pipe = lmdeploy.pipeline("internlm/internlm-chat-7b")
+response = pipe(["Hi, pls intro yourself", "Shanghai is"])
+print(response)
+```
+
+关于 pipeline 的更多推理参数说明，请参考[这里](./docs/zh_cn/inference/pipeline.md)
 
 # 用户教程
 
@@ -101,16 +126,17 @@ LMDeploy TurboMind 引擎拥有卓越的推理能力，在各种规模的模型�
 为了帮助用户更进一步了解 LMDeploy，我们准备了用户指南和进阶指南，请阅读我们的[文档](https://lmdeploy.readthedocs.io/zh-cn/latest/)：
 
 - 用户指南
-  - 推理pipeline
+  - [推理pipeline](./docs/zh_cn/inference/pipeline.md)
   - [推理引擎 - TurboMind](./docs/zh_cn/inference/turbomind.md)
-  - 推理引擎 - PyTorch
+  - [推理引擎 - PyTorch](./docs/zh_cn/inference/pytorch.md)
   - [推理服务](./docs/zh_cn/serving/restful_api.md)
   - [模型量化](./docs/zh_cn/quantization)
 - 进阶指南
   - 增加对话模板
   - 支持新模型
   - gemm tuning
-  - 长文本推理
+  - [长文本推理](./docs/zh_cn/advance/long_context.md)
+  - [多模型推理服务](./docs/zh_cn/serving/proxy_server.md)
 
 ## 贡献指南
 

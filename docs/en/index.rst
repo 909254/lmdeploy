@@ -24,6 +24,13 @@ Welcome to LMDeploy's tutorials!
    benchmark/profile_api_server.md
    benchmark/profile_triton_server.md
 
+.. _supported_models:
+.. toctree::
+   :maxdepth: 1
+   :caption: Supported Models
+
+   supported_models/supported_models.md
+
 .. _inference:
 .. toctree::
    :maxdepth: 1
@@ -40,6 +47,7 @@ Welcome to LMDeploy's tutorials!
    :caption: serving
 
    serving/restful_api.md
+   serving/proxy_server.md
 
 .. _quantization:
 .. toctree::
@@ -54,6 +62,8 @@ Welcome to LMDeploy's tutorials!
    :maxdepth: 1
    :caption: Advanced Guide
 
+   advance/pytorch_new_model.md
+   advance/long_context.md
    serving/qos.md
 
 Indices and tables
